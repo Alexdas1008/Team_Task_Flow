@@ -3,20 +3,23 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Team Task Manager API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: me
+  - name: projects
+  - name: members
+  - name: tasks
+  - name: dashboard
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +27,558 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /me:
+    get:
+      operationId: getMe
+      tags: [me]
+      summary: Get the current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [me]
+      summary: List all users in the workspace (for member assignment)
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List projects the current user can access
+      responses:
+        "200":
+          description: Projects with summary stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectSummary"
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a new project (creator becomes Admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{projectId}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectDetail"
+    patch:
+      operationId: updateProject
+      tags: [projects]
+      summary: Update a project (Admin only)
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete a project (Admin only)
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{projectId}/members:
+    get:
+      operationId: listProjectMembers
+      tags: [members]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectMember"
+    post:
+      operationId: addProjectMember
+      tags: [members]
+      summary: Add a user to a project (Admin only)
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddMemberInput"
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectMember"
+
+  /projects/{projectId}/members/{memberId}:
+    patch:
+      operationId: updateProjectMember
+      tags: [members]
+      summary: Change a member's role (Admin only)
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: memberId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMemberInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectMember"
+    delete:
+      operationId: removeProjectMember
+      tags: [members]
+      summary: Remove a member from a project (Admin only)
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: memberId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Removed
+
+  /projects/{projectId}/tasks:
+    get:
+      operationId: listProjectTasks
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+    post:
+      operationId: createTask
+      tags: [tasks]
+      summary: Create a task (Admin only)
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+
+  /tasks/{taskId}:
+    get:
+      operationId: getTask
+      tags: [tasks]
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+    patch:
+      operationId: updateTask
+      tags: [tasks]
+      summary: Update a task (Admins can update anything; assignees can update status)
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaskInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+    delete:
+      operationId: deleteTask
+      tags: [tasks]
+      summary: Delete a task (Admin only)
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [dashboard]
+      summary: Aggregate dashboard stats for the current user
+      responses:
+        "200":
+          description: Dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+
+  /my-tasks:
+    get:
+      operationId: listMyTasks
+      tags: [tasks]
+      summary: All tasks assigned to the current user across projects
+      responses:
+        "200":
+          description: My tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaskWithProject"
+
+  /activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Recent activity across the user's projects
+      responses:
+        "200":
+          description: Activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityEntry"
+
 components:
+  parameters:
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema: { type: string }
+
   schemas:
     HealthStatus:
       type: object
       properties:
-        status:
-          type: string
-      required:
-        - status
+        status: { type: string }
+      required: [status]
 
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        name: { type: string }
+        imageUrl: { type: string, nullable: true }
+      required: [id, email, name]
+
+    ProjectRole:
+      type: string
+      enum: [admin, member]
+
+    TaskStatus:
+      type: string
+      enum: [todo, in_progress, done]
+
+    TaskPriority:
+      type: string
+      enum: [low, medium, high]
+
+    Project:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        color: { type: string }
+        ownerId: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, name, color, ownerId, createdAt]
+
+    ProjectSummary:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        color: { type: string }
+        ownerId: { type: string }
+        createdAt: { type: string, format: date-time }
+        myRole:
+          $ref: "#/components/schemas/ProjectRole"
+        memberCount: { type: integer }
+        totalTasks: { type: integer }
+        todoCount: { type: integer }
+        inProgressCount: { type: integer }
+        doneCount: { type: integer }
+        overdueCount: { type: integer }
+      required:
+        - id
+        - name
+        - color
+        - ownerId
+        - createdAt
+        - myRole
+        - memberCount
+        - totalTasks
+        - todoCount
+        - inProgressCount
+        - doneCount
+        - overdueCount
+
+    ProjectDetail:
+      allOf:
+        - $ref: "#/components/schemas/ProjectSummary"
+        - type: object
+          properties:
+            members:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProjectMember"
+          required: [members]
+
+    CreateProjectInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        description: { type: string, maxLength: 500, nullable: true }
+        color: { type: string }
+      required: [name, color]
+
+    UpdateProjectInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        description: { type: string, maxLength: 500, nullable: true }
+        color: { type: string }
+
+    ProjectMember:
+      type: object
+      properties:
+        id: { type: string }
+        projectId: { type: string }
+        userId: { type: string }
+        role:
+          $ref: "#/components/schemas/ProjectRole"
+        joinedAt: { type: string, format: date-time }
+        user:
+          $ref: "#/components/schemas/User"
+      required: [id, projectId, userId, role, joinedAt, user]
+
+    AddMemberInput:
+      type: object
+      properties:
+        userId: { type: string }
+        role:
+          $ref: "#/components/schemas/ProjectRole"
+      required: [userId, role]
+
+    UpdateMemberInput:
+      type: object
+      properties:
+        role:
+          $ref: "#/components/schemas/ProjectRole"
+      required: [role]
+
+    Task:
+      type: object
+      properties:
+        id: { type: string }
+        projectId: { type: string }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+        priority:
+          $ref: "#/components/schemas/TaskPriority"
+        assigneeId: { type: string, nullable: true }
+        assignee:
+          oneOf:
+            - $ref: "#/components/schemas/User"
+            - type: "null"
+        dueDate: { type: string, format: date-time, nullable: true }
+        createdById: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required:
+        - id
+        - projectId
+        - title
+        - status
+        - priority
+        - createdById
+        - createdAt
+        - updatedAt
+
+    TaskWithProject:
+      allOf:
+        - $ref: "#/components/schemas/Task"
+        - type: object
+          properties:
+            project:
+              $ref: "#/components/schemas/Project"
+          required: [project]
+
+    CreateTaskInput:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 140 }
+        description: { type: string, maxLength: 2000, nullable: true }
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+        priority:
+          $ref: "#/components/schemas/TaskPriority"
+        assigneeId: { type: string, nullable: true }
+        dueDate: { type: string, format: date-time, nullable: true }
+      required: [title, status, priority]
+
+    UpdateTaskInput:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 140 }
+        description: { type: string, maxLength: 2000, nullable: true }
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+        priority:
+          $ref: "#/components/schemas/TaskPriority"
+        assigneeId: { type: string, nullable: true }
+        dueDate: { type: string, format: date-time, nullable: true }
+
+    StatusBucket:
+      type: object
+      properties:
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+        count: { type: integer }
+      required: [status, count]
+
+    Dashboard:
+      type: object
+      properties:
+        totalProjects: { type: integer }
+        totalTasks: { type: integer }
+        myOpenTasks: { type: integer }
+        myOverdueTasks: { type: integer }
+        myCompletedThisWeek: { type: integer }
+        statusBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusBucket"
+        upcomingTasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaskWithProject"
+        overdueTasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaskWithProject"
+      required:
+        - totalProjects
+        - totalTasks
+        - myOpenTasks
+        - myOverdueTasks
+        - myCompletedThisWeek
+        - statusBreakdown
+        - upcomingTasks
+        - overdueTasks
+
+    ActivityEntry:
+      type: object
+      properties:
+        id: { type: string }
+        kind:
+          type: string
+          enum: [task_created, task_status_changed, task_assigned, project_created, member_added]
+        projectId: { type: string }
+        projectName: { type: string }
+        actorId: { type: string }
+        actorName: { type: string }
+        targetTaskId: { type: string, nullable: true }
+        targetTaskTitle: { type: string, nullable: true }
+        message: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, kind, projectId, projectName, actorId, actorName, message, createdAt]
